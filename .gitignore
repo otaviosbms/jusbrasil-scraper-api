@@ -2,3 +2,7 @@ node_modules/
 dist/
 .env
 scripts/output-*.html
+
+# Sessão autenticada salva por `npm run login` (docs/AUTH.md) — contém cookies de
+# sessão do Jusbrasil, equivalente a uma senha. Nunca commitar, nunca compartilhar.
+*.auth-state.json

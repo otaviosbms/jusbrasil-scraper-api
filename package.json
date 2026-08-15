@@ -11,6 +11,7 @@
     "start:prod": "node dist/main.js",
     "start:mcp": "node dist/mcp/mcp.server.js",
     "inspect": "node scripts/inspect.mjs",
+    "login": "node --env-file=.env scripts/login.mjs",
     "postinstall": "playwright install chromium"
   },
   "dependencies": {

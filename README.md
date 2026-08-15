@@ -14,6 +14,7 @@ Documentação detalhada em [`docs/`](./docs):
 - [`docs/API.md`](./docs/API.md) — referência completa dos endpoints REST
 - [`docs/MCP.md`](./docs/MCP.md) — camada de compatibilidade MCP: tools, configuração num cliente, limitações
 - [`docs/SNIPPET_ID.md`](./docs/SNIPPET_ID.md) — arquitetura de busca (id + snippet) e recuperação sob demanda do conteúdo completo
+- [`docs/AUTH.md`](./docs/AUTH.md) — camada opcional de login (sessão autenticada), incluindo por que eleva o risco do aviso legal abaixo
 
 ## ⚠️ Aviso legal
 
@@ -21,6 +22,7 @@ Documentação detalhada em [`docs/`](./docs):
 - Os Termos de Uso do Jusbrasil restringem raspagem automatizada do site. Este projeto foi criado para **estudo/uso pessoal**, com rate limit baixo e espaçamento entre requisições por padrão. Uso comercial, redistribuição dos dados extraídos ou volume alto de requisições pode violar os termos do site e trazer risco jurídico — a responsabilidade de avaliar isso é sua.
 - Dados de processos judiciais podem conter informação pessoal sensível (LGPD). Não redistribua nem armazene esses dados sem base legal adequada.
 - O projeto **não** contorna a proteção anti-bot do site (sem solver de captcha, sem spoofing, sem proxies) — apenas espaça as requisições reais e reage de forma explícita quando um desafio é detectado. Ver [`docs/ANTI_BOT.md`](./docs/ANTI_BOT.md).
+- Existe uma camada **opcional** de login (sessão autenticada numa conta Jusbrasil sua) pra acessar conteúdo de assinante — ela eleva o risco acima descrito (a maioria dos planos pagos proíbe uso automatizado da conta, mesmo por assinante legítimo) e **não deve ser usada** pra redistribuir conteúdo pago. Ver [`docs/AUTH.md`](./docs/AUTH.md) antes de configurar.
 
 ## Setup
 
@@ -76,6 +78,18 @@ Ver [`docs/MCP.md`](./docs/MCP.md) para a lista de tools, como configurar num
 cliente MCP (ex: Claude Desktop) e uma observação importante sobre a versão
 fixada do `@modelcontextprotocol/sdk`.
 
+## Login opcional (sessão autenticada)
+
+```bash
+# no .env: JUSBRASIL_EMAIL=... e JUSBRASIL_PASSWORD=...
+npm run login
+```
+
+Abre um navegador visível, faz login uma vez e salva a sessão localmente; a
+API e o MCP passam a reaproveitá-la automaticamente em toda navegação, sem
+mudar a forma de chamar nada. **Leia [`docs/AUTH.md`](./docs/AUTH.md) antes**
+— é um passo opcional que eleva o risco descrito no aviso legal acima.
+
 ## Sobre os seletores CSS (importante)
 
 O Jusbrasil não publica documentação da sua marcação HTML, e ela muda sem
@@ -97,7 +111,7 @@ src/
 ├── main.ts               # bootstrap
 ├── app.module.ts          # ConfigModule global + ThrottlerModule (rate limit 4/min)
 ├── common/
-│   ├── browser.service.ts   # Chromium compartilhado (Playwright), fecha no OnModuleDestroy
+│   ├── browser.service.ts   # Chromium compartilhado (Playwright); carrega sessão de login se existir (docs/AUTH.md)
 │   ├── cache.service.ts     # cache em memória, TTL 15 min
 │   └── throttle.service.ts  # fila serializada + cooldown adaptativo (ver docs/ANTI_BOT.md)
 ├── scraping/
