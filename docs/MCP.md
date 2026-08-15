@@ -16,7 +16,8 @@ anti-bot (ver `docs/ANTI_BOT.md`) continuam valendo exatamente do mesmo jeito.
 
 ## Ferramentas expostas
 
-Uma tool MCP por categoria, definidas em `src/mcp/mcp.tools.ts`:
+Uma tool MCP de busca por categoria, definidas em `src/mcp/mcp.tools.ts`,
+mais uma tool de recuperação registrada diretamente em `src/mcp/mcp.server.ts`:
 
 | Tool | Categoria |
 |---|---|
@@ -26,13 +27,20 @@ Uma tool MCP por categoria, definidas em `src/mcp/mcp.tools.ts`:
 | `jusbrasil_artigos` | artigos |
 | `jusbrasil_legislacao` | legislação |
 | `jusbrasil_diarios` | diários oficiais |
+| `jusbrasil_get_document` | recupera o conteúdo completo de um item retornado por uma das buscas acima |
 
-Todas aceitam os mesmos parâmetros: `q` (obrigatório) e `page` (opcional,
-padrão 1). O retorno é o mesmo JSON da API REST (`{ query, page, count,
-results, source }`), serializado como um bloco de texto no `content` da
-resposta MCP. Em caso de erro (query vazia ou desafio anti-bot detectado), a
-tool responde com `isError: true` e uma mensagem, em vez de derrubar o
-processo.
+As tools de busca aceitam os mesmos parâmetros: `q` (obrigatório) e `page`
+(opcional, padrão 1). O retorno é o mesmo JSON da API REST (`{ query, page,
+count, results, source }`), serializado como um bloco de texto no `content`
+da resposta MCP. Cada item de `results` inclui um `id` — ver
+`docs/SNIPPET_ID.md` para a arquitetura de busca compacta (snippet) +
+recuperação sob demanda.
+
+`jusbrasil_get_document` aceita apenas `id` (o valor retornado num item de
+busca anterior) e devolve `{ id, category, title, content, source }` com o
+texto completo da página. Em caso de erro (query vazia, `id` inválido ou
+desafio anti-bot detectado), qualquer tool responde com `isError: true` e uma
+mensagem, em vez de derrubar o processo.
 
 ## Rodando
 

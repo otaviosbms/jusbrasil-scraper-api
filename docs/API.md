@@ -1,6 +1,6 @@
 # Referência da API
 
-Todos os endpoints aceitam `q` (obrigatório) e `page` (opcional, padrão `1`).
+Todos os endpoints de busca aceitam `q` (obrigatório) e `page` (opcional, padrão `1`).
 
 | Endpoint | Categoria | Formato da query |
 |---|---|---|
@@ -10,28 +10,58 @@ Todos os endpoints aceitam `q` (obrigatório) e `page` (opcional, padrão `1`).
 | `GET /api/artigos` | Artigos | texto livre |
 | `GET /api/legislacao` | Legislação | texto livre |
 | `GET /api/diarios` | Diários oficiais | texto livre |
+| `GET /api/document` | Recuperação sob demanda | `id` de um item retornado numa busca acima |
 
 `GET /health` → `{ "status": "ok" }`
 
-## Resposta de sucesso
+## Resposta de sucesso (busca)
 
 ```json
 {
   "query": "dano moral",
   "page": 1,
   "count": 10,
-  "results": [ { "...": "campos variam por categoria, ver docs/SCRAPERS.md" } ],
+  "results": [ { "id": "...", "...": "demais campos variam por categoria, ver docs/SCRAPERS.md" } ],
   "source": "https://www.jusbrasil.com.br/jurisprudencia/busca?q=dano+moral&p=1"
 }
 ```
+
+Cada item de `results` traz um `id` (string opaca, ou `null` quando o item não tem
+`link`) junto com `title`/`snippet`/demais campos da categoria — ver
+`docs/SNIPPET_ID.md` para o raciocínio por trás dessa arquitetura de busca +
+recuperação sob demanda.
+
+## Recuperação sob demanda: `GET /api/document?id=...`
+
+Recupera o conteúdo completo (`title` + `content` com o texto integral, sem o
+HTML) da página vinculada a um resultado de busca anterior, usando o `id`
+retornado naquele resultado. Pensado para ser chamado só quando o
+`title`/`snippet` do item já obtido pela busca não bastarem para responder —
+evita trazer o teor completo de resultados que não serão usados.
+
+```json
+{
+  "id": "anVyaXNwcnVkZW5jaWE6Omh0dHBzOi8v...",
+  "category": "jurisprudencia",
+  "title": "TJ-GO - Apelação Cível: ...",
+  "content": "texto completo extraído da página...",
+  "source": "https://www.jusbrasil.com.br/jurisprudencia/..."
+}
+```
+
+A extração de `content` é heurística (não calibrada seletor a seletor por
+categoria como as buscas — ver `docs/SCRAPERS.md`): pega o `<article>`/`<main>`
+da página após remover script/style/nav/header/footer, com fallback pro
+`<body>` inteiro. Pode trazer ruído (ex: menus não capturados pelos seletores
+removidos) dependendo do template da página de destino.
 
 ## Respostas de erro
 
 | Status | Quando |
 |---|---|
-| `400` | `q` ausente ou vazio |
+| `400` | `q` ausente ou vazio (buscas), ou `id` ausente/inválido (`/api/document`) |
 | `429` | verificação anti-bot do Jusbrasil detectada nessa busca, ou rate limit da própria API estourado |
-| `502` | qualquer outra falha na navegação/extração |
+| `502` | qualquer outra falha na navegação/extração, incluindo quando `/api/document` não consegue extrair nenhum texto da página |
 
 ## Rate limiting
 

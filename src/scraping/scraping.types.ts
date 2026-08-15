@@ -9,6 +9,14 @@ export interface SearchResponse {
   source: string;
 }
 
+export interface DocumentResponse {
+  id: string;
+  category: string;
+  title: string;
+  content: string;
+  source: string;
+}
+
 export interface CategoryConfig {
   name: string;
   buildUrl: (query: string, page: number) => string;

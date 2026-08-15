@@ -59,6 +59,28 @@ async function main() {
     );
   }
 
+  server.registerTool(
+    'jusbrasil_get_document',
+    {
+      description:
+        'Recupera o conteúdo completo (título + texto integral) de um resultado retornado por ' +
+        'uma das buscas jusbrasil_*, usando o "id" presente em cada item da lista de resultados. ' +
+        'Use quando o snippet/título do resultado não forem suficientes para responder à pergunta.',
+      inputSchema: {
+        id: z.string().min(1).describe('id de um item retornado por uma busca jusbrasil_* anterior'),
+      },
+    },
+    async ({ id }: { id: string }) => {
+      try {
+        const result = await scraper.getDocument(id);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: 'text', text: `Erro: ${message}` }], isError: true };
+      }
+    },
+  );
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
 

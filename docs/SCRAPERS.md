@@ -44,6 +44,25 @@ Nome relacionado (ex: sócio de uma empresa): `[class*="person-summary_card__nam
 Tipo (pessoa/empresa): presença de `[class*="person-summary_icon--company"]`
 CNPJ/localização: spans não vazios em `[class*="person-summary_card__info__"] [class*="shared-styles_caption__"] > span`
 
+## `id` de cada resultado e recuperação sob demanda
+
+Além dos campos acima, cada item recebe um `id` (gerado centralmente em
+`ScraperService.run`, não em cada `config.ts`) a partir de `config.name` +
+`link`, via `encodeDocumentId` em `src/scraping/document-id.ts`. Itens sem
+`link` (não deveria acontecer, mas `mapItem` pode em teoria omitir) recebem
+`id: null`.
+
+Esse `id` é o que `ScraperService.getDocument`/`GET /api/document`/tool MCP
+`jusbrasil_get_document` usam pra navegar até a página completa depois — ver
+`docs/SNIPPET_ID.md`. Diferente dos seletores de listagem acima, a extração
+de conteúdo completo (`getDocument`) **não é calibrada por categoria**: usa
+`article, main, [class*="content"], [class*="text"]` como heurística genérica
+(primeiro que casar) com fallback pro `<body>` inteiro. Se isso se mostrar
+insuficiente pra alguma categoria específica, o próximo passo é calibrar
+seletores por categoria do mesmo jeito que os de listagem (rodar
+`npm run inspect -- <categoria> <query>` numa página de detalhe real, não só
+na busca).
+
 ## Detecção de bloqueio anti-bot
 
 Página de desafio Cloudflare identificada por:

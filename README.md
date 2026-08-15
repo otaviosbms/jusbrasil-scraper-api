@@ -13,6 +13,7 @@ Documentação detalhada em [`docs/`](./docs):
 - [`docs/ANTI_BOT.md`](./docs/ANTI_BOT.md) — como o throttle e a detecção de desafio funcionam
 - [`docs/API.md`](./docs/API.md) — referência completa dos endpoints REST
 - [`docs/MCP.md`](./docs/MCP.md) — camada de compatibilidade MCP: tools, configuração num cliente, limitações
+- [`docs/SNIPPET_ID.md`](./docs/SNIPPET_ID.md) — arquitetura de busca (id + snippet) e recuperação sob demanda do conteúdo completo
 
 ## ⚠️ Aviso legal
 
@@ -46,11 +47,19 @@ Ver [`docs/API.md`](./docs/API.md) para a referência completa. Resumo:
 | `GET /api/artigos?q=...` | Artigos |
 | `GET /api/legislacao?q=...` | Legislação |
 | `GET /api/diarios?q=...` | Diários oficiais |
+| `GET /api/document?id=...` | Conteúdo completo de um item retornado numa busca acima |
 | `GET /health` | health check |
 
 ```bash
 curl "http://localhost:3000/api/jurisprudencia?q=dano+moral&page=1"
+
+# id vem no campo "id" de um item do resultado acima
+curl "http://localhost:3000/api/document?id=<id-do-resultado>"
 ```
+
+Cada item de busca já vem com `title`/`snippet`; `/api/document` só deve ser
+chamado quando isso não for suficiente — ver
+[`docs/SNIPPET_ID.md`](./docs/SNIPPET_ID.md).
 
 ## Servidor MCP
 
@@ -95,17 +104,18 @@ src/
 │   ├── scraper.service.ts    # orquestra cache -> throttle -> browser -> parse, por categoria
 │   ├── scraping.module.ts
 │   ├── scraping.types.ts
+│   ├── document-id.ts         # encode/decode do id opaco (categoria + link) usado por getDocument
 │   └── configs/*.config.ts   # URL + seletores + mapItem por categoria (ver docs/SCRAPERS.md)
 ├── search/
-│   ├── search.controller.ts  # as 6 rotas GET /api/*
+│   ├── search.controller.ts  # as 6 rotas GET /api/* + GET /api/document
 │   └── search.module.ts
 ├── health/
 │   ├── health.controller.ts  # GET /health (fora do rate limit)
 │   └── health.module.ts
 └── mcp/
-    ├── mcp.server.ts          # entrypoint stdio separado (não sobe HTTP)
+    ├── mcp.server.ts          # entrypoint stdio separado (não sobe HTTP); registra também jusbrasil_get_document
     ├── mcp-bootstrap.module.ts   # contexto Nest mínimo: ConfigModule + ScrapingModule
-    └── mcp.tools.ts               # definição das 6 tools (nome, descrição, método do ScraperService)
+    └── mcp.tools.ts               # definição das 6 tools de busca (nome, descrição, método do ScraperService)
 ```
 
 ## Limitações conhecidas
@@ -114,6 +124,7 @@ Ver [`docs/ANTI_BOT.md`](./docs/ANTI_BOT.md) e [`docs/SCRAPERS.md`](./docs/SCRAP
 
 - Cloudflare pode bloquear sob uso repetido — comportamento esperado e documentado, não um bug.
 - `legislacao`: resultados aninhados (artigos dentro de uma lei) são descartados, só a lei "pai" aparece.
-- `consulta-processual`: espera nome/CPF/CNPJ, não busca full-text; não segue automaticamente o link para a página de processos de cada pessoa/empresa.
+- `consulta-processual`: espera nome/CPF/CNPJ, não busca full-text; não segue automaticamente o link para a página de processos de cada pessoa/empresa (pode ser recuperado sob demanda via `GET /api/document`/`jusbrasil_get_document`, ver `docs/SNIPPET_ID.md`).
+- `GET /api/document`/`jusbrasil_get_document`: extração de conteúdo completo é heurística (seletor genérico, não calibrado por categoria como as buscas) — ver `docs/SCRAPERS.md`.
 - Sem paginação "carregar mais" via scroll infinito, só o parâmetro `page`/`p` na URL.
 - Sem autenticação/login — apenas conteúdo público de busca.

@@ -39,4 +39,9 @@ export class SearchController {
   diarios(@Query('q') q: string, @Query('page') page?: string) {
     return this.scraper.search(q, this.parsePage(page)).diarios();
   }
+
+  @Get('document')
+  document(@Query('id') id: string) {
+    return this.scraper.getDocument(id);
+  }
 }
