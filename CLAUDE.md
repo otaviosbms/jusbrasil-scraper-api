@@ -49,11 +49,6 @@ transportes já reaproveitam o mesmo `ScraperService`/`register-tools.ts`
   prefira melhorar a heurística genérica (ex: "candidato com mais texto") a
   criar um caso especial por categoria, a menos que uma categoria específica
   se mostre consistentemente ruim o suficiente pra justificar isso.
-- **Não eleve a postura de evasão anti-bot** (stealth plugin, resolução de
-  captcha, proxies, spoofing adicional) além do que já existe sem alinhar
-  antes com quem mantém o projeto — é uma decisão consciente com risco
-  jurídico documentado em `docs/ANTI_BOT.md`, não um detalhe técnico livre
-  pra otimizar.
 - **Variável de ambiente nova:** sempre adicione em `.env.example` com um
   comentário explicando o efeito, e documente no `docs/*.md` pertinente
   (`ANTI_BOT.md` pra throttle, `AUTH.md` pra login, `DEPLOY.md` pra deploy).
