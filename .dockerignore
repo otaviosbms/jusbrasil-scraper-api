@@ -1,0 +1,8 @@
+node_modules
+dist
+.git
+.env
+scripts/output-*.html
+.jusbrasil-browser-profile
+*-browser-profile
+*.auth-state.json

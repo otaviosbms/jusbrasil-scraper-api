@@ -7,3 +7,5 @@ scripts/output-*.html
 # cookies de sessão do Jusbrasil, equivalente a uma senha. Nunca commitar, nunca compartilhar.
 .jusbrasil-browser-profile/
 *-browser-profile/
+# Bind mount do docker-compose.yml pro mesmo perfil, em deploy via Docker (docs/DEPLOY.md).
+data/

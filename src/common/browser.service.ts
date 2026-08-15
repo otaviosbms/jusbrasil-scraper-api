@@ -33,11 +33,20 @@ export class BrowserService implements OnModuleDestroy {
 
   private getBrowser(): Promise<Browser> {
     if (!this.browserPromise) {
+      // Chromium não roda com sandbox de kernel dentro de um container Docker
+      // comum (sem --cap-add=SYS_ADMIN) — precisa de --no-sandbox pra não
+      // crashar no boot. Só ativado via CHROME_NO_SANDBOX=true (setado no
+      // Dockerfile, ver docs/DEPLOY.md); fora de container fica desativado por
+      // padrão, já que --no-sandbox reduz o isolamento do processo renderizador.
+      const noSandbox = this.config.get<string>('CHROME_NO_SANDBOX') === 'true';
       this.browserPromise = puppeteer.launch({
         headless: true,
         userDataDir: this.profileDir(),
         defaultViewport: { width: 1366, height: 768 },
-        args: ['--disable-blink-features=AutomationControlled'],
+        args: [
+          '--disable-blink-features=AutomationControlled',
+          ...(noSandbox ? ['--no-sandbox', '--disable-setuid-sandbox'] : []),
+        ],
       });
     }
     return this.browserPromise;

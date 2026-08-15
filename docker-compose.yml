@@ -1,0 +1,17 @@
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      # Sobrescreve qualquer valor local do .env: dentro do container o perfil
+      # sempre vive nesse caminho, mapeado pra pasta do host abaixo — sobrevive
+      # a `docker compose up --build` (rebuild não apaga a pasta) e dá pra
+      # copiar uma sessão de `npm run login` feita localmente via scp/rsync
+      # direto pra ./data/browser-profile (ver docs/DEPLOY.md).
+      JUSBRASIL_PROFILE_DIR: /app/.jusbrasil-browser-profile
+    volumes:
+      - ./data/browser-profile:/app/.jusbrasil-browser-profile

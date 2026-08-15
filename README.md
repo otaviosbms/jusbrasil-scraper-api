@@ -16,6 +16,7 @@ Documentação detalhada em [`docs/`](./docs):
 - [`docs/MCP.md`](./docs/MCP.md) — camada de compatibilidade MCP: tools, configuração num cliente, limitações
 - [`docs/SNIPPET_ID.md`](./docs/SNIPPET_ID.md) — arquitetura de busca (id + snippet) e recuperação sob demanda do conteúdo completo
 - [`docs/AUTH.md`](./docs/AUTH.md) — camada opcional de login (sessão autenticada), incluindo por que eleva o risco do aviso legal abaixo
+- [`docs/DEPLOY.md`](./docs/DEPLOY.md) — deploy numa VPS própria via Docker (REST + MCP online)
 
 ## ⚠️ Aviso legal
 
@@ -98,6 +99,20 @@ Abre um navegador visível, faz login uma vez e salva a sessão localmente; a
 API e o MCP passam a reaproveitá-la automaticamente em toda navegação, sem
 mudar a forma de chamar nada. **Leia [`docs/AUTH.md`](./docs/AUTH.md) antes**
 — é um passo opcional que eleva o risco descrito no aviso legal acima.
+
+## Deploy (VPS própria)
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+```
+
+Sobe REST (`/api/*`) e MCP (`POST /mcp`) juntos, sempre ligado, com Chromium
+de verdade via Docker. Ver [`docs/DEPLOY.md`](./docs/DEPLOY.md) — inclui TLS
+via Caddy, como levar a sessão de `npm run login` pra VPS, e um aviso
+importante: o `Dockerfile` não foi testado rodando de fato nesta sessão
+(ambiente sem Docker disponível), só verificado por leitura do código-fonte
+do Puppeteer.
 
 ## Sobre os seletores CSS (importante)
 
