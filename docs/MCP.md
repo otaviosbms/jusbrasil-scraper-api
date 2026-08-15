@@ -63,6 +63,11 @@ texto completo da página. Em caso de erro (query vazia, `id` inválido ou
 desafio anti-bot detectado), qualquer tool responde com `isError: true` e uma
 mensagem, em vez de derrubar o processo.
 
+Cada chamada de tool (nas duas transportes) loga `tool`, resultado
+(`ok`/`error`), duração e um detalhe (`query`/`id`, ou a mensagem de erro) via
+`console.error` — não via `Logger` do Nest, porque o entrypoint stdio reserva
+o stdout inteiro pro protocolo JSON-RPC (ver seção seguinte).
+
 ## Rodando via HTTP (remoto)
 
 Nenhum passo extra: sobe junto com a API REST.

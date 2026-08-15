@@ -22,8 +22,9 @@ os três pontos.
 
 ## Como funciona aqui
 
-1. **Busca** (`ScraperService.run`, em `src/scraping/scraper.service.ts`):
-   além dos campos específicos de cada categoria (ver `docs/SCRAPERS.md`),
+1. **Busca** (`ScraperService.search(query, page).<categoria>()`, em
+   `src/scraping/scraper.service.ts`): além dos campos específicos de cada
+   categoria (ver `docs/SCRAPERS.md`),
    cada item do array `results` ganha um `id` — string opaca gerada por
    `encodeDocumentId(categoria, link)` (`src/scraping/document-id.ts`), ou
    `null` quando o item não tem `link`. Não é um ID de banco de dados: é só o
@@ -33,9 +34,10 @@ os três pontos.
 2. **Recuperação sob demanda** (`ScraperService.getDocument`, mesmo arquivo):
    dado um `id`, decodifica categoria+link, navega até a página real com o
    mesmo `BrowserService`/`CacheService`/`ThrottleService` das buscas (mesma
-   detecção de desafio anti-bot, mesmo cache, mesmo throttle compartilhado) e
-   extrai `title` + `content` (texto integral, heurístico — ver nota em
-   `docs/API.md`).
+   detecção de desafio anti-bot, mesmo cache, mesmo throttle compartilhado),
+   segue o link de "inteiro teor" quando a categoria for `jurisprudencia` e
+   ele existir, e extrai `title` + `content` (texto integral, heurístico —
+   ver nota em `docs/API.md`).
 
    Exposta como:
    - REST: `GET /api/document?id=...`

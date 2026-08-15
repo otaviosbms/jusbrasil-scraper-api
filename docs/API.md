@@ -50,10 +50,15 @@ evita trazer o teor completo de resultados que não serão usados.
 ```
 
 A extração de `content` é heurística (não calibrada seletor a seletor por
-categoria como as buscas — ver `docs/SCRAPERS.md`): pega o `<article>`/`<main>`
-da página após remover script/style/nav/header/footer, com fallback pro
-`<body>` inteiro. Pode trazer ruído (ex: menus não capturados pelos seletores
-removidos) dependendo do template da página de destino.
+categoria como as buscas — ver `docs/SCRAPERS.md`): entre os candidatos que
+casam com `article, main, [class*="content"], [class*="text"]` (após remover
+script/style/nav/header/footer), fica com o que tiver mais texto — não o
+primeiro do DOM, que costuma ser só um link de acessibilidade ("Pular para
+conteúdo principal"). Fallback pro `<body>` inteiro se nada casar. Para
+`jurisprudencia`, se a página do resultado tiver um link de "inteiro teor"
+(o acórdão completo, separado da ementa/resumo), esse link é seguido antes de
+extrair o conteúdo. Mesmo assim pode trazer ruído dependendo do template da
+página de destino.
 
 ## Respostas de erro
 
@@ -65,5 +70,7 @@ removidos) dependendo do template da página de destino.
 
 ## Rate limiting
 
-4 requisições/min por instância da API (`src/utils/rateLimit.js`), independente
+4 requisições/min por instância da API (`ThrottlerModule`, configurado em
+`src/app.module.ts` e aplicado globalmente via `ThrottlerGuard`), independente
 do espaçamento interno das navegações reais ao Jusbrasil (ver `docs/ANTI_BOT.md`).
+`GET /health` fica fora desse limite.

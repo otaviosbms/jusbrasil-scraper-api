@@ -39,8 +39,11 @@ curl http://localhost:3000/health
 curl "http://localhost:3000/api/jurisprudencia?q=dano+moral"
 ```
 
-Logs: `docker compose logs -f`. Parar: `docker compose down` (o perfil do
-navegador não é apagado, ver próxima seção).
+Logs: `docker compose logs -f` — estruturados via `Logger` do Nest: log de
+acesso HTTP (método, rota, status, duração) pra toda requisição, mais logs de
+negócio (início/fim/erro de cada busca e recuperação de documento, chamadas
+de tool MCP). Parar: `docker compose down` (o perfil do navegador não é
+apagado, ver próxima seção).
 
 ## Chromium em container: `--no-sandbox`
 
@@ -71,6 +74,22 @@ jeito mais simples:
 Sem isso, a API/MCP na VPS funciona normalmente em modo anônimo — login é
 opcional (`docs/AUTH.md`).
 
+## Reinício abrupto do container (OOM, `docker kill`, crash do host)
+
+`main.ts` chama `app.enableShutdownHooks()`, então um `docker stop`/restart
+normal (SIGTERM) fecha o Chromium antes do container morrer. Mas se o
+container for morto sem passar por aí — OOM, `docker kill -9`, crash do
+host — o Chromium não fecha direito e deixa um `SingletonLock` preso no
+profile em `./data/browser-profile`, que sobrevive ao container. Como o
+hostname do container muda a cada recriação, o próximo Chromium recusa
+reabrir esse profile ("appears to be in use by another Chromium process"),
+mesmo o processo anterior já não existindo.
+
+`BrowserService` detecta esse erro especificamente e remove o lock sozinho
+antes de tentar de novo (logando um aviso) — não precisa apagar
+`./data/browser-profile` manualmente nem reiniciar o container à mão pra
+recuperar disso.
+
 ## TLS / domínio (recomendado, não obrigatório)
 
 Um cliente MCP remoto tipicamente espera uma URL `https://`. Rodar direto em
@@ -98,13 +117,3 @@ docker compose up -d --build
 
 O perfil do navegador (`./data/browser-profile`) não é afetado por rebuild —
 é uma pasta no host, fora da imagem.
-
-## Nota sobre esta seção
-
-Diferente do resto do projeto (buscas, seletores, throttle), o `Dockerfile`
-**não foi testado rodando de verdade** nesta sessão — o ambiente onde ele foi
-escrito não tinha Docker disponível pra validar o build. O `PUPPETEER_EXECUTABLE_PATH`
-e o comportamento de skip-download foram conferidos direto no código-fonte do
-pacote `puppeteer` instalado (não é suposição), mas vale rodar `docker compose
-up --build` e conferir os logs na primeira vez antes de confiar nisso em
-produção.

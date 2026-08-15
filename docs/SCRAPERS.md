@@ -1,7 +1,7 @@
 # Seletores e formato de resultado por categoria
 
 Todos calibrados contra o HTML real do Jusbrasil (não são suposições) rodando
-`scripts/inspect.js` e inspecionando com Cheerio. As classes CSS usam CSS
+`scripts/inspect.mjs` e inspecionando com Cheerio. As classes CSS usam CSS
 Modules com hash (`heading_root__J_K7z`) — por isso os seletores usam
 `[class*="..."]` (contém) em vez de igualdade exata, para sobreviver a
 pequenas mudanças de build. Isso **não é garantia** de estabilidade: o
@@ -46,9 +46,10 @@ CNPJ/localização: spans não vazios em `[class*="person-summary_card__info__"]
 
 ## `id` de cada resultado e recuperação sob demanda
 
-Além dos campos acima, cada item recebe um `id` (gerado centralmente em
-`ScraperService.run`, não em cada `config.ts`) a partir de `config.name` +
-`link`, via `encodeDocumentId` em `src/scraping/document-id.ts`. Itens sem
+Além dos campos acima, cada item recebe um `id` (gerado centralmente no
+método privado `ScraperService.run`, não em cada `config.ts`) a partir de
+`config.name` + `link`, via `encodeDocumentId` em
+`src/scraping/document-id.ts`. Itens sem
 `link` (não deveria acontecer, mas `mapItem` pode em teoria omitir) recebem
 `id: null`.
 
@@ -56,12 +57,20 @@ Esse `id` é o que `ScraperService.getDocument`/`GET /api/document`/tool MCP
 `jusbrasil_get_document` usam pra navegar até a página completa depois — ver
 `docs/SNIPPET_ID.md`. Diferente dos seletores de listagem acima, a extração
 de conteúdo completo (`getDocument`) **não é calibrada por categoria**: usa
-`article, main, [class*="content"], [class*="text"]` como heurística genérica
-(primeiro que casar) com fallback pro `<body>` inteiro. Se isso se mostrar
+`article, main, [class*="content"], [class*="text"]` como heurística genérica,
+mas fica com o candidato de **mais texto** entre os que casarem (não o
+primeiro do DOM — que costuma ser um link de acessibilidade tipo "Pular para
+conteúdo principal"), com fallback pro `<body>` inteiro. Se isso se mostrar
 insuficiente pra alguma categoria específica, o próximo passo é calibrar
 seletores por categoria do mesmo jeito que os de listagem (rodar
 `npm run inspect -- <categoria> <query>` numa página de detalhe real, não só
 na busca).
+
+Especificamente pra `jurisprudencia`, a página de resultado normalmente só
+mostra a ementa (resumo) do acórdão — o texto integral vive numa página
+separada, linkada por um `a[href*="/inteiro-teor-"]`. Quando esse link existe,
+`getDocument` navega até ele antes de extrair o conteúdo, então `source` na
+resposta aponta pro inteiro teor, não pra página de resultado original.
 
 ## Detecção de bloqueio anti-bot
 
