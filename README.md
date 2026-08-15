@@ -1,11 +1,12 @@
 # jusbrasil-scraper-api
 
-API não oficial (NestJS + Playwright + Cheerio) que expõe buscas no Jusbrasil
+API não oficial (NestJS + Puppeteer + Cheerio) que expõe buscas no Jusbrasil
 tanto via REST quanto via [MCP](https://modelcontextprotocol.io) (stdio). O
 site tem proteção anti-bot (Cloudflare) e bloqueia requisições HTTP
 simples/curl, por isso a extração usa um navegador real (Chromium headless
-via Playwright) para renderizar as páginas antes de extrair os resultados
-com Cheerio.
+via Puppeteer, com `puppeteer-extra-plugin-stealth` pra reduzir detecção de
+automação — ver `docs/ANTI_BOT.md`) para renderizar as páginas antes de
+extrair os resultados com Cheerio.
 
 Documentação detalhada em [`docs/`](./docs):
 - [`docs/STRUCTURE.md`](./docs/STRUCTURE.md) — estrutura de pastas e fluxo de uma requisição
@@ -21,14 +22,14 @@ Documentação detalhada em [`docs/`](./docs):
 - Isto **não é** uma API oficial do Jusbrasil e não tem relação com a empresa.
 - Os Termos de Uso do Jusbrasil restringem raspagem automatizada do site. Este projeto foi criado para **estudo/uso pessoal**, com rate limit baixo e espaçamento entre requisições por padrão. Uso comercial, redistribuição dos dados extraídos ou volume alto de requisições pode violar os termos do site e trazer risco jurídico — a responsabilidade de avaliar isso é sua.
 - Dados de processos judiciais podem conter informação pessoal sensível (LGPD). Não redistribua nem armazene esses dados sem base legal adequada.
-- O projeto **não** contorna a proteção anti-bot do site (sem solver de captcha, sem spoofing, sem proxies) — apenas espaça as requisições reais e reage de forma explícita quando um desafio é detectado. Ver [`docs/ANTI_BOT.md`](./docs/ANTI_BOT.md).
+- O projeto usa `puppeteer-extra-plugin-stealth` pra evadir ativamente a detecção de automação/fingerprinting (não é mais uma postura de "só recua quando detectado") — isso eleva o risco de violação dos Termos de Uso além do que a raspagem anônima simples já representa. Nenhum solver de captcha e nenhum proxy são usados; o desafio interativo do Cloudflare, quando aparece, não é resolvido programaticamente. Ver [`docs/ANTI_BOT.md`](./docs/ANTI_BOT.md) — inclusive o histórico de por que essa era uma decisão deliberada em contrário antes.
 - Existe uma camada **opcional** de login (sessão autenticada numa conta Jusbrasil sua) pra acessar conteúdo de assinante — ela eleva o risco acima descrito (a maioria dos planos pagos proíbe uso automatizado da conta, mesmo por assinante legítimo) e **não deve ser usada** pra redistribuir conteúdo pago. Ver [`docs/AUTH.md`](./docs/AUTH.md) antes de configurar.
 
 ## Setup
 
 ```bash
 cd jusbrasil-scraper-api
-npm install          # também baixa o Chromium do Playwright via postinstall
+npm install          # também baixa o Chromium do Puppeteer automaticamente
 cp .env.example .env
 npm run start:dev    # modo watch
 # ou
@@ -111,7 +112,7 @@ src/
 ├── main.ts               # bootstrap
 ├── app.module.ts          # ConfigModule global + ThrottlerModule (rate limit 4/min)
 ├── common/
-│   ├── browser.service.ts   # Chromium compartilhado (Playwright); carrega sessão de login se existir (docs/AUTH.md)
+│   ├── browser.service.ts   # Chromium compartilhado (Puppeteer + stealth); perfil persistente (docs/AUTH.md)
 │   ├── cache.service.ts     # cache em memória, TTL 15 min
 │   └── throttle.service.ts  # fila serializada + cooldown adaptativo (ver docs/ANTI_BOT.md)
 ├── scraping/

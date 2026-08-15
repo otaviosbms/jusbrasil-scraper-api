@@ -13,7 +13,7 @@ Uma busca que já retornasse o HTML/texto completo de cada resultado:
 
 - multiplicaria por vários o volume de tokens de uma única chamada de busca;
 - misturaria, no mesmo retorno, resultados relevantes e irrelevantes;
-- exigiria uma navegação Playwright por resultado **antes** de saber se ele
+- exigiria uma navegação real (Puppeteer) por resultado **antes** de saber se ele
   vale a pena — e cada navegação passa pelo throttle (~12–20s, ver
   `docs/ANTI_BOT.md`), então isso seria caro demais pra fazer "por garantia".
 

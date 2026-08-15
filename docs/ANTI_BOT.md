@@ -9,24 +9,45 @@ para **todas** as categorias — inclusive as que tinham funcionado segundos
 antes. Isso indica scoring por comportamento/frequência da sessão, não um
 bloqueio permanente de IP.
 
-## O que este projeto faz (e não faz)
+## ⚠️ Mudança de postura (histórico)
 
-- **Não resolve o desafio.** Nenhum solver de captcha, browser "undetected",
-  spoofing de fingerprint ou proxy rotation. Resolver o desafio
-  programaticamente seria evasão de anti-bot, fora do escopo deste projeto
-  por decisão deliberada — independente de a finalidade ser pessoal/acadêmica,
-  a autorização para contornar a proteção pertence ao Jusbrasil, não a quem
-  roda o scraper.
-- **Espaça as requisições reais** (`src/utils/throttle.js`): fila serializada
-  com espera mínima configurável (padrão 12s) + jitter aleatório (padrão até
-  8s) entre cada navegação ao site. Isso reduz a *frequência* de gatilho, não
-  a elimina.
+Até uma versão anterior deste projeto, a política aqui era explícita e
+deliberada: **não** tentar evadir a proteção anti-bot de jeito nenhum —
+nenhum solver de captcha, nenhum browser "undetected", nenhum spoofing de
+fingerprint. O raciocínio (mantido aqui por transparência, mesmo não sendo
+mais a política atual): *a autorização para contornar a proteção pertence ao
+Jusbrasil, não a quem roda o scraper*.
+
+Essa política mudou: o projeto agora usa `puppeteer-extra-plugin-stealth`
+(ver `src/common/browser.service.ts`), que aplica ativamente técnicas de
+evasão de fingerprinting de automação (esconde `navigator.webdriver`, ajusta
+propriedades do Chrome headless que entregam a automação, etc.) — uma decisão
+tomada conscientemente, sabendo que ela é o oposto direto do raciocínio
+acima. Isso **eleva o risco jurídico e de bloqueio de conta** descrito no
+aviso legal do README além do que a raspagem anônima sem evasão já
+representava. Ver também `docs/AUTH.md` para o mesmo tipo de risco aplicado
+à camada de login.
+
+## O que este projeto faz (e não faz) hoje
+
+- **Evade fingerprinting de automação** via stealth plugin, mas **não
+  resolve o desafio interativo do Cloudflare** (Turnstile) quando ele
+  aparece — isso continua sem solver automatizado. Se o desafio aparecer
+  mesmo com stealth, o comportamento é o mesmo de antes: erro explícito, não
+  uma tentativa de resolver.
+- **Espaça as requisições reais** (`src/common/throttle.service.ts`): fila
+  serializada com espera mínima configurável (padrão 12s) + jitter aleatório
+  (padrão até 8s) entre cada navegação ao site. Isso reduz a *frequência* de
+  gatilho, independente do stealth.
 - **Detecta o desafio explicitamente** em vez de devolver silenciosamente uma
   lista vazia: a resposta HTTP vira `429` com mensagem clara.
 - **Cooldown adaptativo:** ao detectar um desafio, todas as próximas buscas
   esperam um período extra (padrão 5 min, `SCRAPE_COOLDOWN_MS`) antes de
-  tentar de novo — o comportamento de um usuário real que "desistiu por
-  enquanto", não de um sistema insistindo.
+  tentar de novo.
+- **Perfil de navegador persistente** (`JUSBRASIL_PROFILE_DIR`, ver
+  `docs/AUTH.md`): além de habilitar a camada de login, também persiste
+  cookies de clearance do Cloudflare entre execuções, o que tende a reduzir
+  desafios repetidos independente do stealth.
 
 ## Variáveis de ambiente relevantes
 
@@ -38,8 +59,10 @@ bloqueio permanente de IP.
 
 ## Limite do que dá pra garantir
 
-Mesmo com esse espaçamento, o Jusbrasil pode acionar o desafio a qualquer
-momento — a heurística de scoring é deles, não é algo que se possa prever
-ou controlar de fora. Se `count: 0` ou erro `429` aparecer com frequência,
-a resposta correta é esperar mais entre usos, não tentar aumentar a
-"resiliência" do scraper via técnicas de evasão.
+Mesmo com esse espaçamento e o stealth plugin, o Jusbrasil pode acionar o
+desafio interativo a qualquer momento — a heurística de scoring é deles, não
+é algo que se possa prever ou controlar de fora, e stealth reduz a chance de
+detecção por fingerprint, não a elimina. Se `count: 0` ou erro `429`
+aparecer com frequência, a resposta correta continua sendo esperar mais
+entre usos, não tentar contornar o desafio interativo em si (isso continua
+fora do escopo deste projeto).

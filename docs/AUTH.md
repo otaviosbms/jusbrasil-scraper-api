@@ -40,22 +40,25 @@ scraping autenticado.
 2. **Nada é resolvido automaticamente além do formulário de e-mail/senha.** Se
    aparecer verificação anti-bot, 2FA, ou você usa "Continuar com Google" (sem
    senha), o script não tenta contornar nada — ele só espera (até 5 minutos)
-   você completar isso manualmente na janela que abriu, do mesmo jeito que o
-   resto do projeto reage a desafio anti-bot sem tentar resolver
-   (`docs/ANTI_BOT.md`). Isso é proposital: nada aqui tenta passar por
-   captcha.
+   você completar isso manualmente na janela que abriu. O stealth plugin
+   (`docs/ANTI_BOT.md`) reduz a chance disso aparecer, mas quando aparece o
+   script não tenta resolver captcha nem 2FA sozinho — só o desafio interativo
+   fica de fora da evasão automática.
 
-3. Ao detectar que saiu de `/login`, o script salva a sessão (cookies) num
-   arquivo local — `JUSBRASIL_AUTH_STATE_PATH`, padrão
-   `.jusbrasil-auth-state.json` — via `context.storageState()` do Playwright.
+3. O browser é lançado com `userDataDir` apontando pra
+   `JUSBRASIL_PROFILE_DIR` (padrão `.jusbrasil-browser-profile`) — um perfil
+   de Chromium persistente em disco. Não existe passo explícito de "salvar
+   sessão": cookies, localStorage e cache já ficam gravados nesse perfil
+   automaticamente conforme a navegação acontece, inclusive o login.
 
-4. **O servidor (API REST e MCP) não faz login.** `BrowserService` só checa,
-   em toda `withPage()` (usada tanto pelas buscas quanto pelo `getDocument`),
-   se esse arquivo existe; se existir, os contextos do Playwright já nascem
-   com aquela sessão carregada. Sem o arquivo, comportamento idêntico a antes
-   (sessão anônima). Não há lógica de "logar automaticamente se a sessão
-   expirar" — isso é deliberado, pra login continuar sendo um passo manual e
-   visível, não algo que roda sozinho em produção.
+4. **O servidor (API REST e MCP) não faz login.** `BrowserService`
+   (`src/common/browser.service.ts`) sempre lança o Chromium com esse mesmo
+   `userDataDir` — com ou sem login feito. Sem `npm run login` rodado antes,
+   o perfil só acumula estado anônimo (e ainda assim ajuda: persiste cookies
+   de clearance do Cloudflare entre execuções). Não há lógica de "logar
+   automaticamente se a sessão expirar" — isso é deliberado, pra login
+   continuar sendo um passo manual e visível, não algo que roda sozinho em
+   produção.
 
 ## Uso
 
@@ -68,22 +71,24 @@ npm run login
 ```
 
 Depois disso pode até apagar `JUSBRASIL_EMAIL`/`JUSBRASIL_PASSWORD` do `.env`
-— só o arquivo de sessão (`JUSBRASIL_AUTH_STATE_PATH`) importa pro dia a dia.
-As buscas e o `get_document`/`GET /api/document` passam a usar a sessão
-automaticamente, sem mudança nenhuma na forma de chamar as tools/endpoints.
+— só a pasta de perfil (`JUSBRASIL_PROFILE_DIR`) importa pro dia a dia. As
+buscas e o `get_document`/`GET /api/document` passam a usar a sessão
+automaticamente, sem mudança nenhuma na forma de chamar as tools/endpoints
+(o servidor já usa esse mesmo perfil mesmo sem login — só passa a estar
+autenticado depois que `npm run login` rodar com sucesso).
 
 Se a sessão expirar (respostas voltarem a vir como se estivesse deslogado),
 rode `npm run login` de novo.
 
-## O arquivo de sessão é equivalente a uma senha
+## A pasta de perfil é equivalente a uma senha
 
-`.jusbrasil-auth-state.json` (ou o caminho que você configurar) contém
-cookies de sessão válidos — quem tiver esse arquivo consegue navegar logado
-na sua conta sem saber sua senha. Por isso:
+`.jusbrasil-browser-profile/` (ou o caminho que você configurar) contém
+cookies de sessão válidos depois do login — quem tiver essa pasta consegue
+navegar logado na sua conta sem saber sua senha. Por isso:
 
-- já está no `.gitignore` (padrão `*.auth-state.json`) — confirme isso se
-  mudar o nome do arquivo;
-- nunca compartilhe, cole em chat, ou suba pra lugar nenhum;
+- já está no `.gitignore` (padrão `.jusbrasil-browser-profile/`) — confirme
+  isso se mudar o nome da pasta;
+- nunca compartilhe, zipe pra enviar em chat, ou suba pra lugar nenhum;
 - se vazar, troque a senha da sua conta Jusbrasil (isso invalida a sessão
   salva) e rode `npm run login` de novo.
 

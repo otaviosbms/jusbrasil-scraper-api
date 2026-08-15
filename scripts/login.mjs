@@ -1,14 +1,22 @@
 // Login manual e único no Jusbrasil pra habilitar a camada de sessão autenticada
 // (ver docs/AUTH.md). Roda com `npm run login`, que carrega o .env via `node
 // --env-file`. Não é chamado pelo servidor: é um passo separado, deliberado, que
-// você roda quando decide usar essa camada — o servidor só lê a sessão salva.
+// você roda quando decide usar essa camada — o servidor só reaproveita o perfil.
 //
 // De propósito headed (headless: false) e com timeout generoso pra manual: se o
 // Jusbrasil pedir verificação anti-bot, 2FA ou "Continuar com Google", este
 // script não tenta resolver nada sozinho — ele espera você completar na janela
-// que abre, do mesmo jeito que o resto do projeto reage a desafio anti-bot sem
-// tentar contornar (ver docs/ANTI_BOT.md).
-import { chromium } from 'playwright';
+// que abre.
+//
+// Não existe passo explícito de "salvar sessão": o browser já foi aberto com
+// userDataDir apontando pro perfil persistente (mesmo usado em produção via
+// BrowserService), então tudo que acontecer na janela — cookies, localStorage,
+// o desafio do Cloudflare resolvido manualmente — já fica salvo em disco quando
+// o Chromium fecha.
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+
+puppeteer.use(StealthPlugin());
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -16,7 +24,7 @@ const USER_AGENT =
 
 const EMAIL = process.env.JUSBRASIL_EMAIL;
 const PASSWORD = process.env.JUSBRASIL_PASSWORD;
-const STATE_PATH = process.env.JUSBRASIL_AUTH_STATE_PATH || '.jusbrasil-auth-state.json';
+const PROFILE_DIR = process.env.JUSBRASIL_PROFILE_DIR || '.jusbrasil-browser-profile';
 const MANUAL_STEP_TIMEOUT_MS = 5 * 60 * 1000;
 
 if (!EMAIL || !PASSWORD) {
@@ -26,14 +34,15 @@ if (!EMAIL || !PASSWORD) {
   process.exit(1);
 }
 
-const browser = await chromium.launch({ headless: false });
-const context = await browser.newContext({ userAgent: USER_AGENT, locale: 'pt-BR' });
-const page = await context.newPage();
+const browser = await puppeteer.launch({ headless: false, userDataDir: PROFILE_DIR });
+const page = await browser.newPage();
+await page.setUserAgent(USER_AGENT);
+await page.setExtraHTTPHeaders({ 'Accept-Language': 'pt-BR,pt;q=0.9' });
 
 console.log('Abrindo a página de login do Jusbrasil...');
 await page.goto('https://www.jusbrasil.com.br/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-await page.fill('input[type="email"][name="email"]', EMAIL);
+await page.type('input[type="email"][name="email"]', EMAIL);
 await page.click('button[type="submit"]');
 console.log('E-mail enviado. Aguardando campo de senha (até 15s)...');
 
@@ -43,8 +52,9 @@ const passwordAppeared = await page
   .catch(() => false);
 
 if (passwordAppeared) {
-  await page.fill('input[type="password"]', PASSWORD);
-  await page.locator('button[type="submit"]').last().click();
+  await page.type('input[type="password"]', PASSWORD);
+  const submitButtons = await page.$$('button[type="submit"]');
+  await submitButtons[submitButtons.length - 1].click();
 } else {
   console.log(
     'Não apareceu campo de senha automaticamente — pode ser verificação anti-bot, ' +
@@ -62,16 +72,15 @@ await page
   .catch(() => null);
 
 if (page.url().includes('/login')) {
-  console.error('Login não concluído (ainda em /login). Sessão não foi salva — rode de novo.');
+  console.error('Login não concluído (ainda em /login). Rode `npm run login` de novo.');
   await browser.close();
   process.exit(1);
 }
 
-await context.storageState({ path: STATE_PATH });
-console.log(`Sessão salva em ${STATE_PATH}.`);
+console.log(`Login concluído. Sessão salva no perfil persistente em ${PROFILE_DIR}.`);
 console.log(
   'A partir de agora, a API/MCP reaproveita essa sessão automaticamente em toda navegação. ' +
-    'Esse arquivo contém cookies de sessão — trate como uma senha: não commite, não compartilhe.',
+    'Essa pasta contém cookies de sessão — trate como uma senha: não commite, não compartilhe.',
 );
 console.log('Se a sessão expirar (ex: respostas voltarem a vir sem conteúdo de assinante), rode `npm run login` de novo.');
 

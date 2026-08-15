@@ -11,8 +11,7 @@
     "start:prod": "node dist/main.js",
     "start:mcp": "node dist/mcp/mcp.server.js",
     "inspect": "node scripts/inspect.mjs",
-    "login": "node --env-file=.env scripts/login.mjs",
-    "postinstall": "playwright install chromium"
+    "login": "node --env-file=.env scripts/login.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.13.3",
@@ -23,7 +22,9 @@
     "@nestjs/throttler": "^6.2.1",
     "cheerio": "^1.0.0",
     "node-cache": "^5.1.2",
-    "playwright": "^1.47.0",
+    "puppeteer": "^25.7.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "zod": "^3.23.8"
