@@ -51,6 +51,7 @@ Ver [`docs/API.md`](./docs/API.md) para a referência completa. Resumo:
 | `GET /api/legislacao?q=...` | Legislação |
 | `GET /api/diarios?q=...` | Diários oficiais |
 | `GET /api/document?id=...` | Conteúdo completo de um item retornado numa busca acima |
+| `POST /mcp` | Servidor MCP remoto (Streamable HTTP) — mesmas buscas como tools, ver `docs/MCP.md` |
 | `GET /health` | health check |
 
 ```bash
@@ -66,18 +67,25 @@ chamado quando isso não for suficiente — ver
 
 ## Servidor MCP
 
-Além da API REST, as mesmas buscas ficam disponíveis como tools MCP via
-stdio, reaproveitando o mesmo `ScraperService` (mesmo cache, throttle e
-detecção de anti-bot):
+Além da API REST, as mesmas buscas ficam disponíveis como tools
+[MCP](https://modelcontextprotocol.io), de duas formas — reaproveitando o
+mesmo `ScraperService` (mesmo cache, throttle e detecção de anti-bot):
 
-```bash
-npm run build
-npm run start:mcp
-```
+- **HTTP** (`POST /mcp`) — já sobe junto com a API REST, sem passo extra:
+  ```bash
+  npm run build && npm run start:prod
+  ```
+  Use isso pra acessar as tools remotamente (mesmo host do deploy).
 
-Ver [`docs/MCP.md`](./docs/MCP.md) para a lista de tools, como configurar num
-cliente MCP (ex: Claude Desktop) e uma observação importante sobre a versão
-fixada do `@modelcontextprotocol/sdk`.
+- **stdio** (processo separado, uso local — ex: Claude Desktop):
+  ```bash
+  npm run build
+  npm run start:mcp
+  ```
+
+Ver [`docs/MCP.md`](./docs/MCP.md) para a lista de tools, o protocolo do
+endpoint HTTP, como configurar num cliente MCP e uma observação importante
+sobre a versão fixada do `@modelcontextprotocol/sdk`.
 
 ## Login opcional (sessão autenticada)
 
@@ -128,8 +136,11 @@ src/
 │   ├── health.controller.ts  # GET /health (fora do rate limit)
 │   └── health.module.ts
 └── mcp/
-    ├── mcp.server.ts          # entrypoint stdio separado (não sobe HTTP); registra também jusbrasil_get_document
-    ├── mcp-bootstrap.module.ts   # contexto Nest mínimo: ConfigModule + ScrapingModule
+    ├── mcp.server.ts          # entrypoint stdio separado (uso local, não sobe HTTP)
+    ├── mcp-bootstrap.module.ts   # contexto Nest mínimo pro stdio: ConfigModule + ScrapingModule
+    ├── mcp-http.controller.ts    # POST /mcp — mesmas tools via Streamable HTTP (uso remoto)
+    ├── mcp-http.module.ts
+    ├── register-tools.ts          # registro das 7 tools, compartilhado entre stdio e HTTP
     └── mcp.tools.ts               # definição das 6 tools de busca (nome, descrição, método do ScraperService)
 ```
 

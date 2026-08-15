@@ -4,6 +4,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { SearchModule } from './search/search.module';
 import { HealthModule } from './health/health.module';
+import { McpHttpModule } from './mcp/mcp-http.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { HealthModule } from './health/health.module';
     ]),
     SearchModule,
     HealthModule,
+    McpHttpModule,
   ],
   providers: [
     {
