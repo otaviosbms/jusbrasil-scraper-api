@@ -25,8 +25,10 @@ async function main() {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  console.error('[MCP] Servidor MCP (stdio) iniciado');
 
   const shutdown = async () => {
+    console.error('[MCP] Encerrando servidor MCP (stdio)');
     await appContext.close();
     process.exit(0);
   };

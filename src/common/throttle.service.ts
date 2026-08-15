@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 function delay(ms: number): Promise<void> {
@@ -12,6 +12,7 @@ function delay(ms: number): Promise<void> {
  */
 @Injectable()
 export class ThrottleService {
+  private readonly logger = new Logger(ThrottleService.name);
   private queue: Promise<void> = Promise.resolve();
   private cooldownUntil = 0;
 
@@ -27,6 +28,7 @@ export class ThrottleService {
 
   reportChallengeSeen() {
     this.cooldownUntil = Date.now() + this.cooldownMs;
+    this.logger.warn(`Desafio anti-bot detectado — cooldown de ${this.cooldownMs}ms ativado`);
   }
 
   throttled<T>(fn: () => Promise<T>): Promise<T> {
@@ -34,7 +36,13 @@ export class ThrottleService {
       const now = Date.now();
       const waitForCooldown = Math.max(0, this.cooldownUntil - now);
       const jitter = Math.floor(Math.random() * this.maxJitterMs);
-      await delay(Math.max(this.minDelayMs, waitForCooldown) + jitter);
+      const waitMs = Math.max(this.minDelayMs, waitForCooldown) + jitter;
+      if (waitForCooldown > 0) {
+        this.logger.warn(`Em cooldown: aguardando ${waitMs}ms antes da próxima navegação`);
+      } else {
+        this.logger.debug(`Aguardando ${waitMs}ms antes da próxima navegação`);
+      }
+      await delay(waitMs);
       return fn();
     });
     // evita que uma rejeição quebre a fila para as próximas requisições

@@ -1,5 +1,7 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { rm } from 'fs/promises';
+import { join } from 'path';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, Page } from 'puppeteer';
@@ -17,6 +19,7 @@ const DEFAULT_PROFILE_DIR = '.jusbrasil-browser-profile';
 
 @Injectable()
 export class BrowserService implements OnModuleDestroy {
+  private readonly logger = new Logger(BrowserService.name);
   private browserPromise: Promise<Browser> | null = null;
 
   constructor(private readonly config: ConfigService) {}
@@ -31,23 +34,59 @@ export class BrowserService implements OnModuleDestroy {
     return this.config.get<string>('JUSBRASIL_PROFILE_DIR') || DEFAULT_PROFILE_DIR;
   }
 
+  // Herdado de um container anterior morto sem passar por onModuleDestroy (OOM,
+  // `docker kill`, crash do host) — o hostname do container muda a cada recriação,
+  // então o Chromium recusa reabrir um profile "travado por outro computador"
+  // mesmo que esse processo já não exista. Como aqui só roda uma instância do
+  // Chromium por vez (nunca dois processos concorrentes de verdade), é seguro
+  // remover o lock e tentar de novo.
+  private async clearStaleLock(): Promise<void> {
+    const dir = this.profileDir();
+    this.logger.warn(`Removendo lock travado do profile em ${dir}`);
+    await Promise.all(
+      ['SingletonLock', 'SingletonCookie', 'SingletonSocket'].map((file) =>
+        rm(join(dir, file), { force: true }),
+      ),
+    );
+  }
+
+  private launch(): Promise<Browser> {
+    // Chromium não roda com sandbox de kernel dentro de um container Docker
+    // comum (sem --cap-add=SYS_ADMIN) — precisa de --no-sandbox pra não
+    // crashar no boot. Só ativado via CHROME_NO_SANDBOX=true (setado no
+    // Dockerfile, ver docs/DEPLOY.md); fora de container fica desativado por
+    // padrão, já que --no-sandbox reduz o isolamento do processo renderizador.
+    const noSandbox = this.config.get<string>('CHROME_NO_SANDBOX') === 'true';
+    return puppeteer.launch({
+      headless: true,
+      userDataDir: this.profileDir(),
+      defaultViewport: { width: 1366, height: 768 },
+      args: [
+        '--disable-blink-features=AutomationControlled',
+        ...(noSandbox ? ['--no-sandbox', '--disable-setuid-sandbox'] : []),
+      ],
+    });
+  }
+
   private getBrowser(): Promise<Browser> {
     if (!this.browserPromise) {
-      // Chromium não roda com sandbox de kernel dentro de um container Docker
-      // comum (sem --cap-add=SYS_ADMIN) — precisa de --no-sandbox pra não
-      // crashar no boot. Só ativado via CHROME_NO_SANDBOX=true (setado no
-      // Dockerfile, ver docs/DEPLOY.md); fora de container fica desativado por
-      // padrão, já que --no-sandbox reduz o isolamento do processo renderizador.
-      const noSandbox = this.config.get<string>('CHROME_NO_SANDBOX') === 'true';
-      this.browserPromise = puppeteer.launch({
-        headless: true,
-        userDataDir: this.profileDir(),
-        defaultViewport: { width: 1366, height: 768 },
-        args: [
-          '--disable-blink-features=AutomationControlled',
-          ...(noSandbox ? ['--no-sandbox', '--disable-setuid-sandbox'] : []),
-        ],
-      });
+      this.logger.log(`Iniciando Chromium (profile=${this.profileDir()})`);
+      this.browserPromise = this.launch()
+        .catch(async (err) => {
+          const message = err instanceof Error ? err.message : String(err);
+          if (!message.includes('appears to be in use by another Chromium process')) throw err;
+          await this.clearStaleLock();
+          return this.launch();
+        })
+        .then((browser) => {
+          browser.on('disconnected', () => this.logger.warn('Chromium desconectou inesperadamente'));
+          return browser;
+        })
+        .catch((err) => {
+          this.logger.error(`Falha ao iniciar Chromium: ${err instanceof Error ? err.message : err}`);
+          this.browserPromise = null;
+          throw err;
+        });
     }
     return this.browserPromise;
   }
@@ -69,6 +108,7 @@ export class BrowserService implements OnModuleDestroy {
 
   async onModuleDestroy() {
     if (this.browserPromise) {
+      this.logger.log('Encerrando Chromium');
       const browser = await this.browserPromise;
       await browser.close();
       this.browserPromise = null;

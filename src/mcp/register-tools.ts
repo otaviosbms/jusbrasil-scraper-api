@@ -4,6 +4,15 @@ import { ScraperService } from '../scraping/scraper.service';
 import { SearchResponse } from '../scraping/scraping.types';
 import { MCP_TOOLS, McpToolDefinition } from './mcp.tools';
 
+// console.error (stderr), não Logger do Nest: o entrypoint stdio (mcp.server.ts)
+// reserva stdout inteiro pro protocolo JSON-RPC do MCP, então nenhum log de
+// negócio pode ir por ali — mesmo no transporte HTTP, que não tem essa restrição
+// mas compartilha este módulo.
+function logToolCall(tool: string, ms: number, outcome: 'ok' | 'error', detail?: string): void {
+  const suffix = detail ? ` — ${detail}` : '';
+  console.error(`[MCP] tool=${tool} outcome=${outcome} +${ms}ms${suffix}`);
+}
+
 // Isolada da chamada genérica server.tool(...) de propósito: indexar
 // scraper.search(...) por uma chave em união dentro do mesmo contexto de
 // inferência do .tool() estoura o limite de profundidade do TS (TS2589).
@@ -29,11 +38,14 @@ export function registerJusbrasilTools(server: McpServer, scraper: ScraperServic
     tool: McpToolDefinition,
     args: { q: string; page?: number },
   ): Promise<{ content: { type: 'text'; text: string }[]; isError?: boolean }> {
+    const start = Date.now();
     try {
       const result = await invokeTool(scraper, tool, args.q, args.page ?? 1);
+      logToolCall(tool.name, Date.now() - start, 'ok', `query="${args.q}"`);
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      logToolCall(tool.name, Date.now() - start, 'error', message);
       return { content: [{ type: 'text', text: `Erro: ${message}` }], isError: true };
     }
   }
@@ -58,11 +70,14 @@ export function registerJusbrasilTools(server: McpServer, scraper: ScraperServic
       },
     },
     async ({ id }: { id: string }) => {
+      const start = Date.now();
       try {
         const result = await scraper.getDocument(id);
+        logToolCall('jusbrasil_get_document', Date.now() - start, 'ok', `id=${id}`);
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+        logToolCall('jusbrasil_get_document', Date.now() - start, 'error', message);
         return { content: [{ type: 'text', text: `Erro: ${message}` }], isError: true };
       }
     },

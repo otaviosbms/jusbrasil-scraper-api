@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Post, Req, Res } from '@nestjs/common';
+import { Controller, Delete, Get, Logger, Post, Req, Res } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -25,6 +25,8 @@ const METHOD_NOT_ALLOWED = {
 @Controller('mcp')
 @Throttle({ default: { limit: 30, ttl: 60000 } })
 export class McpHttpController {
+  private readonly logger = new Logger(McpHttpController.name);
+
   constructor(private readonly scraper: ScraperService) {}
 
   @Post()
@@ -42,6 +44,8 @@ export class McpHttpController {
       await server.connect(transport);
       await transport.handleRequest(req, res, req.body);
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Falha ao processar requisição MCP: ${message}`);
       if (!res.headersSent) {
         res.status(500).json({
           jsonrpc: '2.0',
