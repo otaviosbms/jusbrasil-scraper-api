@@ -62,22 +62,24 @@ GET /api/jurisprudencia?q=dano+moral
 LoggingInterceptor         loga método/rota/status/duração no fim (common/logging.interceptor.ts)
         │
         ▼
-SearchController            valida "page", chama scraper.search(q, page).jurisprudencia()
+SearchController            valida "page", monta "filters" a partir de dateFrom/dateTo/jurisType
+                             (só em jurisprudencia), chama scraper.search(q, page, filters).jurisprudencia()
         │
         ▼
-ScraperService.search(...).jurisprudencia()   → método privado run(config, query, page)
+ScraperService.search(...).jurisprudencia()   → método privado run(config, query, page, filters)
         │
         ▼
 ScraperService.run (privado)
-   1. CacheService     — já tem resultado pra essa (categoria, query, página)? retorna direto
-   2. ThrottleService  — espera a vez na fila (mín. delay + jitter; mais tempo se houve desafio recente)
-   3. BrowserService   — abre uma aba isolada no Chromium compartilhado (withPage)
-   4. goto(url) + waitForSelector opcional do config da categoria
-   5. checa se é a página de desafio Cloudflare ("Um momento…") -> se for, aciona cooldown e lança 429
-   6. parseia o HTML com Cheerio, aplica mapItem por card encontrado, gera o id de cada item
+   1. valida "filters" contra config.filterKeys (whitelist por categoria, ver docs/SCRAPERS.md)
+   2. CacheService     — já tem resultado pra essa (categoria, query, página, filtros)? retorna direto
+   3. ThrottleService  — espera a vez na fila (mín. delay + jitter; mais tempo se houve desafio recente)
+   4. BrowserService   — abre uma aba isolada no Chromium compartilhado (withPage)
+   5. goto(config.buildUrl(query, page, filters)) + waitForSelector opcional do config da categoria
+   6. checa se é a página de desafio Cloudflare ("Um momento…") -> se for, aciona cooldown e lança 429
+   7. parseia o HTML com Cheerio, aplica mapItem por card encontrado, gera o id de cada item
         │
         ▼
-SearchController  responde JSON { query, page, count, results, source }
+SearchController  responde JSON { query, page, filters?, count, results, source }
 ```
 
 `GET /api/document?id=...` segue o mesmo caminho de cache/throttle/browser, mas via

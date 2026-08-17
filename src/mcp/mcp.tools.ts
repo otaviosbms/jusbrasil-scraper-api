@@ -29,6 +29,8 @@ export const MCP_TOOLS: McpToolDefinition[] = [
     name: 'jusbrasil_jurisprudencia',
     description:
       'Busca jurisprudência (acórdãos e decisões judiciais) no Jusbrasil por texto livre. ' +
+      'Aceita filtros opcionais de data (dateFrom/dateTo), tipo de julgado (jurisType) e ' +
+      'tribunal/órgão julgador (tribunal, um ou mais). ' +
       'Retorna id, título e um trecho (snippet) de cada resultado, não o inteiro teor.' +
       RETRIEVAL_HINT,
     method: 'jurisprudencia',
