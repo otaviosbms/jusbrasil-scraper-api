@@ -72,6 +72,53 @@ separada, linkada por um `a[href*="/inteiro-teor-"]`. Quando esse link existe,
 `getDocument` navega até ele antes de extrair o conteúdo, então `source` na
 resposta aponta pro inteiro teor, não pra página de resultado original.
 
+## Filtro avançado de `jurisprudencia`
+
+A busca web de jurisprudência tem 3 filtros (chips acima da lista de
+resultados): "Tipo de julgado", "Tribunal" e uma data. Calibrados navegando a
+busca real e lendo a URL resultante de cada opção (não suposição):
+
+| Chip na busca web | Parâmetro de URL | Valores confirmados |
+|---|---|---|
+| Tipo de julgado | `jurisType` | `sumula`, `acordao`, `decisao`, `sentenca`, `despacho`, `orientacao_jurisprudencial` ("Todos os julgados" = sem parâmetro) |
+| (intervalo de data explícito) | `dateFrom` / `dateTo` | `AAAA-MM-DD` |
+| Tribunal | `tribunal` (repetível) | ver lista de siglas abaixo |
+
+O chip de data também oferece atalhos relativos ("Último mês", "Último ano"
+etc.), que geram um parâmetro `l` (ex: `l=365dias` pra "Último ano") em vez
+de `dateFrom`/`dateTo` — não implementado aqui porque `dateFrom`/`dateTo`
+(o formato do exemplo original que motivou este filtro) já cobre o mesmo
+caso de uso de forma explícita e sem depender da data em que a requisição é
+feita.
+
+O chip "Tribunal" abre um diálogo em árvore com uma lista de tribunais/órgãos
+julgadores, todos marcados por padrão (equivalente a "sem filtro"). Marcar só
+alguns e clicar "Filtrar" gera um parâmetro `tribunal` **repetido na URL** por
+item selecionado (ex: `tribunal=stf&tribunal=stj` — não é lista separada por
+vírgula na URL do Jusbrasil, embora este projeto aceite vírgula na própria
+API, ver `docs/API.md`), confirmado navegando a busca real e depois lendo o
+filtro `court`/`operator: "in"` aplicado no lado do servidor
+(`__NEXT_DATA__.props.pageProps.variables.filters`). O valor de cada item é a
+sigla exibida no diálogo em minúsculas, com `-` trocado por `_`:
+
+`stf, stj, tst, tjs, trfs, trts, tse, tres, stm, tjms, tcu, tces, tat_ms,
+tat_sc, tit_sp, cat_go, tnu, tru, cnj, carf, anac, ancine, aneel, antaq,
+antt, cade, cfm`
+
+(siglas originais no diálogo, antes da normalização: `STF, STJ, TST, TJs,
+TRFs, TRTs, TSE, TREs, STM, TJMs, TCU, TCEs, TAT-MS, TAT-SC, TIT-SP, CAT-GO,
+TNU, TRU, CNJ, CARF, ANAC, ANCINE, ANEEL, ANTAQ, ANTT, CADE, CFM`)
+
+`filterKeys` em `CategoryConfig` (`src/scraping/scraping.types.ts`) é a lista
+branca de parâmetros de filtro aceitos por categoria — hoje só
+`jurisprudencia` define algum. `ScraperService.run` rejeita com `400`
+qualquer chave de filtro fora dessa lista (quando o controller da categoria
+de fato repassa algum filtro — ver nota em `docs/API.md`), e valida
+especificamente o formato de `dateFrom`/`dateTo`, o enum de `jurisType` e a
+lista de `tribunal` antes de montar a URL. `jurisprudencia.config.ts` traduz
+o `tribunal` separado por vírgula da API deste projeto para o formato de
+parâmetro repetido que o Jusbrasil espera.
+
 ## Detecção de bloqueio anti-bot
 
 Página de desafio Cloudflare identificada por:

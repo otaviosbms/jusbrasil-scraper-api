@@ -16,8 +16,20 @@ export class SearchController {
   }
 
   @Get('jurisprudencia')
-  jurisprudencia(@Query('q') q: string, @Query('page') page?: string) {
-    return this.scraper.search(q, this.parsePage(page)).jurisprudencia();
+  jurisprudencia(
+    @Query('q') q: string,
+    @Query('page') page?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('jurisType') jurisType?: string,
+    @Query('tribunal') tribunal?: string,
+  ) {
+    const filters: Record<string, string> = {};
+    if (dateFrom) filters.dateFrom = dateFrom;
+    if (dateTo) filters.dateTo = dateTo;
+    if (jurisType) filters.jurisType = jurisType;
+    if (tribunal) filters.tribunal = tribunal;
+    return this.scraper.search(q, this.parsePage(page), filters).jurisprudencia();
   }
 
   @Get('doutrina')

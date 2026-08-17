@@ -6,11 +6,17 @@ import { ThrottleService } from '../common/throttle.service';
 import { CategoryConfig, DocumentResponse, SearchResponse } from './scraping.types';
 import { decodeDocumentId, encodeDocumentId } from './document-id';
 import { consultaProcessualConfig } from './configs/consulta-processual.config';
-import { jurisprudenciaConfig } from './configs/jurisprudencia.config';
+import {
+  jurisprudenciaConfig,
+  JURISPRUDENCIA_JURIS_TYPES,
+  JURISPRUDENCIA_TRIBUNALS,
+} from './configs/jurisprudencia.config';
 import { doutrinaConfig } from './configs/doutrina.config';
 import { artigosConfig } from './configs/artigos.config';
 import { legislacaoConfig } from './configs/legislacao.config';
 import { diariosConfig } from './configs/diarios.config';
+
+const DATE_FILTER_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 // Elementos de "chrome" da página (navegação, scripts, propaganda) removidos antes de
 // extrair o texto do documento completo — mantém get_document focado no conteúdo real.
@@ -49,23 +55,66 @@ export class ScraperService {
     private readonly throttle: ThrottleService,
   ) {}
 
-  search(query: string, page = 1) {
+  search(query: string, page = 1, filters: Record<string, string> = {}) {
     return {
-      consultaProcessual: () => this.run(consultaProcessualConfig, query, page),
-      jurisprudencia: () => this.run(jurisprudenciaConfig, query, page),
-      doutrina: () => this.run(doutrinaConfig, query, page),
-      artigos: () => this.run(artigosConfig, query, page),
-      legislacao: () => this.run(legislacaoConfig, query, page),
-      diarios: () => this.run(diariosConfig, query, page),
+      consultaProcessual: () => this.run(consultaProcessualConfig, query, page, filters),
+      jurisprudencia: () => this.run(jurisprudenciaConfig, query, page, filters),
+      doutrina: () => this.run(doutrinaConfig, query, page, filters),
+      artigos: () => this.run(artigosConfig, query, page, filters),
+      legislacao: () => this.run(legislacaoConfig, query, page, filters),
+      diarios: () => this.run(diariosConfig, query, page, filters),
     };
   }
 
-  private async run(config: CategoryConfig, query: string, page: number): Promise<SearchResponse> {
+  private validateFilters(config: CategoryConfig, filters: Record<string, string>): void {
+    const allowed = config.filterKeys ?? [];
+    for (const key of Object.keys(filters)) {
+      if (!allowed.includes(key)) {
+        throw new HttpException(
+          `Filtro "${key}" não é suportado pela categoria "${config.name}"`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    if (config.name === 'jurisprudencia') {
+      for (const key of ['dateFrom', 'dateTo'] as const) {
+        if (filters[key] && !DATE_FILTER_PATTERN.test(filters[key])) {
+          throw new HttpException(`Filtro "${key}" deve estar no formato AAAA-MM-DD`, HttpStatus.BAD_REQUEST);
+        }
+      }
+      if (filters.jurisType && !JURISPRUDENCIA_JURIS_TYPES.includes(filters.jurisType as never)) {
+        throw new HttpException(
+          `Filtro "jurisType" deve ser um de: ${JURISPRUDENCIA_JURIS_TYPES.join(', ')}`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (filters.tribunal) {
+        const invalid = filters.tribunal.split(',').map((t) => t.trim()).filter(
+          (t) => !JURISPRUDENCIA_TRIBUNALS.includes(t as never),
+        );
+        if (invalid.length > 0) {
+          throw new HttpException(
+            `Filtro "tribunal" contém valor(es) inválido(s): ${invalid.join(', ')}. Use um ou mais de: ${JURISPRUDENCIA_TRIBUNALS.join(', ')}`,
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      }
+    }
+  }
+
+  private async run(
+    config: CategoryConfig,
+    query: string,
+    page: number,
+    filters: Record<string, string> = {},
+  ): Promise<SearchResponse> {
     if (!query || !query.trim()) {
       throw new HttpException('Parâmetro de busca "q" é obrigatório', HttpStatus.BAD_REQUEST);
     }
+    this.validateFilters(config, filters);
 
-    const cacheKey = `${config.name}:${query}:${page}`;
+    const cacheKey = `${config.name}:${query}:${page}:${JSON.stringify(filters)}`;
     const start = Date.now();
     this.logger.log(`Busca iniciada: categoria=${config.name} query="${query}" page=${page}`);
 
@@ -73,7 +122,7 @@ export class ScraperService {
       const response = await this.cache.cached(cacheKey, () =>
         this.throttle.throttled(() =>
           this.browser.withPage(async (browserPage) => {
-            const url = config.buildUrl(query, page);
+            const url = config.buildUrl(query, page, filters);
             await browserPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
             if (config.waitForSelector) {
@@ -112,6 +161,7 @@ export class ScraperService {
             return {
               query,
               page,
+              ...(Object.keys(filters).length > 0 ? { filters } : {}),
               count: results.length,
               results,
               source: url,

@@ -46,7 +46,7 @@ Ver [`docs/API.md`](./docs/API.md) para a referência completa. Resumo:
 | Endpoint | Categoria |
 |---|---|
 | `GET /api/consulta-processual?q=...` | Consulta processual (nome/CPF/CNPJ) |
-| `GET /api/jurisprudencia?q=...` | Jurisprudência |
+| `GET /api/jurisprudencia?q=...` | Jurisprudência (filtros opcionais `dateFrom`/`dateTo`/`jurisType`/`tribunal`, ver `docs/API.md`) |
 | `GET /api/doutrina?q=...` | Doutrina |
 | `GET /api/artigos?q=...` | Artigos |
 | `GET /api/legislacao?q=...` | Legislação |

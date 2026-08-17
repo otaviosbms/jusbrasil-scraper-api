@@ -51,10 +51,18 @@ mais uma tool de recuperação — todas registradas por
 | `jusbrasil_get_document` | recupera o conteúdo completo de um item retornado por uma das buscas acima |
 
 As tools de busca aceitam os mesmos parâmetros: `q` (obrigatório) e `page`
-(opcional, padrão 1). O retorno é o mesmo JSON da API REST (`{ query, page,
-count, results, source }`), serializado como um bloco de texto no `content`
-da resposta MCP. Cada item de `results` inclui um `id` — ver
-`docs/SNIPPET_ID.md` para a arquitetura de busca compacta (snippet) +
+(opcional, padrão 1). `jusbrasil_jurisprudencia` aceita adicionalmente os
+filtros opcionais `dateFrom`/`dateTo` (`AAAA-MM-DD`), `jurisType` (enum:
+`sumula`, `acordao`, `decisao`, `sentenca`, `despacho`,
+`orientacao_jurisprudencial`) e `tribunal` (array de siglas, ver
+`docs/SCRAPERS.md` pra lista completa) — mesmos filtros e mesma validação da
+API REST, ver `docs/API.md`. É a única tool registrada fora do loop genérico em
+`register-tools.ts`, justamente por ter esse schema de entrada estendido; as
+outras 5 buscas continuam só com `q`/`page`. O retorno é o mesmo JSON da API
+REST (`{ query, page, filters?, count, results, source }`, com `filters`
+presente só quando algum filtro foi aplicado), serializado como um bloco de
+texto no `content` da resposta MCP. Cada item de `results` inclui um `id` —
+ver `docs/SNIPPET_ID.md` para a arquitetura de busca compacta (snippet) +
 recuperação sob demanda.
 
 `jusbrasil_get_document` aceita apenas `id` (o valor retornado num item de

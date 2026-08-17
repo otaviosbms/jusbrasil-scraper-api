@@ -5,7 +5,7 @@ Todos os endpoints de busca aceitam `q` (obrigatório) e `page` (opcional, padr�
 | Endpoint | Categoria | Formato da query |
 |---|---|---|
 | `GET /api/consulta-processual` | Consulta processual | nome, CPF ou CNPJ |
-| `GET /api/jurisprudencia` | Jurisprudência | texto livre |
+| `GET /api/jurisprudencia` | Jurisprudência | texto livre — aceita filtros, ver abaixo |
 | `GET /api/doutrina` | Doutrina | texto livre |
 | `GET /api/artigos` | Artigos | texto livre |
 | `GET /api/legislacao` | Legislação | texto livre |
@@ -13,6 +13,39 @@ Todos os endpoints de busca aceitam `q` (obrigatório) e `page` (opcional, padr�
 | `GET /api/document` | Recuperação sob demanda | `id` de um item retornado numa busca acima |
 
 `GET /health` → `{ "status": "ok" }`
+
+## Filtros de `GET /api/jurisprudencia`
+
+Mesmos parâmetros aceitos pelo filtro avançado da busca web do Jusbrasil
+(confirmado navegando a busca real, não suposição — ver `docs/SCRAPERS.md`),
+todos opcionais e combináveis entre si:
+
+| Parâmetro | Formato | Efeito |
+|---|---|---|
+| `dateFrom` | `AAAA-MM-DD` | limita a data do julgado a partir desse dia (inclusive) |
+| `dateTo` | `AAAA-MM-DD` | limita a data do julgado até esse dia (inclusive) |
+| `jurisType` | um de `sumula`, `acordao`, `decisao`, `sentenca`, `despacho`, `orientacao_jurisprudencial` | limita ao tipo de julgado selecionado |
+| `tribunal` | um ou mais de `stf`, `stj`, `tst`, `tjs`, `trfs`, `trts`, `tse`, `tres`, `stm`, `tjms`, `tcu`, `tces`, `tat_ms`, `tat_sc`, `tit_sp`, `cat_go`, `tnu`, `tru`, `cnj`, `carf`, `anac`, `ancine`, `aneel`, `antaq`, `antt`, `cade`, `cfm`, separados por vírgula (ex: `tribunal=stf,stj`) | limita ao(s) tribunal(is)/órgão(s) julgador(es) selecionado(s) |
+
+```bash
+curl "http://localhost:3000/api/jurisprudencia?q=dispensa+discriminatoria&dateFrom=2005-11-11&dateTo=2025-11-11&jurisType=sumula&tribunal=tst"
+```
+
+Um `jurisType` fora da lista acima, um `tribunal` (ou item de uma lista
+separada por vírgula) fora da lista acima, ou uma data fora do formato
+`AAAA-MM-DD` devolvem `400`. Quando pelo menos um filtro é aplicado, a
+resposta ecoa os filtros efetivamente usados em `filters` (ver formato de
+resposta abaixo).
+
+As demais categorias (`consulta-processual`, `doutrina`, `artigos`,
+`legislacao`, `diarios`) não têm filtro próprio: seus controllers REST não
+declaram `dateFrom`/`jurisType`/`tribunal`/etc., então um parâmetro desses na
+URL é simplesmente ignorado pelo NestJS (não chega a validar nem gerar erro)
+— comportamento padrão de query string não declarada, não um `400`
+proposital. A validação de `400` por filtro não suportado
+(`ScraperService.validateFilters`, ver `docs/SCRAPERS.md`) só é alcançável
+hoje através de `jurisprudencia`, a única categoria cujo controller de fato
+coleta e repassa filtros.
 
 ## Resposta de sucesso (busca)
 
@@ -23,6 +56,20 @@ Todos os endpoints de busca aceitam `q` (obrigatório) e `page` (opcional, padr�
   "count": 10,
   "results": [ { "id": "...", "...": "demais campos variam por categoria, ver docs/SCRAPERS.md" } ],
   "source": "https://www.jusbrasil.com.br/jurisprudencia/busca?q=dano+moral&p=1"
+}
+```
+
+O campo `filters` só aparece quando pelo menos um filtro foi aplicado (hoje,
+só em `jurisprudencia` — ver seção acima):
+
+```json
+{
+  "query": "dispensa discriminatoria",
+  "page": 1,
+  "filters": { "dateFrom": "2005-11-11", "dateTo": "2025-11-11", "jurisType": "sumula", "tribunal": "tst" },
+  "count": 1,
+  "results": [ "..." ],
+  "source": "https://www.jusbrasil.com.br/jurisprudencia/busca?q=dispensa+discriminatoria&p=1&dateFrom=2005-11-11&dateTo=2025-11-11&jurisType=sumula&tribunal=tst"
 }
 ```
 
@@ -64,7 +111,7 @@ página de destino.
 
 | Status | Quando |
 |---|---|
-| `400` | `q` ausente ou vazio (buscas), ou `id` ausente/inválido (`/api/document`) |
+| `400` | `q` ausente ou vazio (buscas), `id` ausente/inválido (`/api/document`), ou filtro de `jurisprudencia` inválido (ver seção de filtros acima) |
 | `429` | verificação anti-bot do Jusbrasil detectada nessa busca, ou rate limit da própria API estourado |
 | `502` | qualquer outra falha na navegação/extração, incluindo quando `/api/document` não consegue extrair nenhum texto da página |
 
